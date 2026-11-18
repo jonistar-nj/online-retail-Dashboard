@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Online Retail - Country Dashboard (Cleaned CustomerID)</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #f1f5f9;
+    color: #0f172a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 28px; }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  h1 { margin: 0 0 6px; font-size: 28px; color: #0f172a; }
+  .sub { color: #475569; font-size: 14px; line-height: 1.5; }
+  .badge {
+    display: inline-block;
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    background: #e2e8f0;
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .btn {
+    border: none;
+    background: transparent;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn.active {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+  }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .kpi {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+    border-top: 4px solid #3b82f6;
+  }
+  .kpi:nth-child(2) { border-top-color: #10b981; }
+  .kpi:nth-child(3) { border-top-color: #f59e0b; }
+  .kpi:nth-child(4) { border-top-color: #8b5cf6; }
+  .kpi .label { color: #64748b; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .kpi .value { font-size: 26px; font-weight: 700; color: #0f172a; }
+  .kpi .meta { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+  .panel {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px;
+    margin: 16px 0;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .note {
+    background: #eff6ff;
+    border-left: 4px solid #2563eb;
+    padding: 14px 18px;
+    border-radius: 8px;
+    color: #1e293b;
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin-top: 18px;
+  }
+  footer {
+    color: #64748b;
+    font-size: 12px;
+    margin: 18px 4px 4px;
+    line-height: 1.5;
+  }
+  @media (max-width: 960px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .wrap { padding: 14px; }
+    .kpis { grid-template-columns: 1fr; }
+    h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Online Retail — Country Dashboard <span class="badge">Valid CustomerID Only</span></h1>
+      <div class="sub">Interactive overview of order distribution, customers, and revenue by country (missing CustomerID rows removed)</div>
+    </div>
+    <div class="controls">
+      <button class="btn active" id="btnAll" onclick="setMode('all')">Include UK (All 37 Countries)</button>
+      <button class="btn" id="btnNoUK" onclick="setMode('no_uk')">Exclude UK (International View)</button>
+    </div>
+  </header>
+
+  <section class="kpis">
+    <div class="kpi">
+      <div class="label">Total Unique Orders</div>
+      <div class="value" id="kpiOrders">18,536</div>
+      <div class="meta" id="kpiOrdersSub">Across 37 countries</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Total Revenue</div>
+      <div class="value" id="kpiRevenue">£8,911,407.90</div>
+      <div class="meta" id="kpiRevSub">Excluding null CustomerID</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Unique Customers</div>
+      <div class="value" id="kpiCustomers">4,339</div>
+      <div class="meta" id="kpiCustSub">Identified CustomerIDs</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Countries Represented</div>
+      <div class="value" id="kpiCountries">37</div>
+      <div class="meta">Hong Kong excluded (no CustomerID)</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div id="mapChart" style="height:540px; width:100%;"></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <div id="ordersBarChart" style="height:480px; width:100%;"></div>
+    </div>
+    <div class="panel">
+      <div id="revenueBarChart" style="height:480px; width:100%;"></div>
+    </div>
+  </section>
+
+  <div class="note">
+    <b>Data Cleaning & Visualization Notes:</b>
+    <ul style="margin: 6px 0 0; padding-left: 20px;">
+      <li><b>CustomerID Filter:</b> Removed <b>135,080 rows</b> with missing <code>CustomerID</code> (along with cancelled invoices starting with <code>"C"</code> and non-positive quantities).</li>
+      <li><b>High-Contrast Color Design:</b> The world map uses a <b>logarithmic color scale</b> across distinct hue bands (Teal &rarr; Blue &rarr; Purple &rarr; Crimson/Amber) so countries with 1–500 orders stand out clearly instead of blending into a single pale shade.</li>
+      <li><b>Categorical Bar Colors:</b> Each country in the Top 10 charts is assigned a high-contrast distinct color for effortless visual separation. Use the <b>Exclude UK</b> toggle above to inspect international markets without UK skew.</li>
+    </ul>
+  </div>
+
+  <footer>Source: Online Retail dataset (cleaned for valid CustomerID). Currency shown in GBP (£).</footer>
+</div>
+
+<script>
+const rawData = [
+  { country: "United Kingdom", map: "United Kingdom", orders: 16649, revenue: 7308391.55, items: 4269472, customers: 3921 },
+  { country: "Germany", map: "Germany", orders: 457, revenue: 228867.14, items: 119263, customers: 94 },
+  { country: "France", map: "France", orders: 389, revenue: 209024.05, items: 111472, customers: 87 },
+  { country: "EIRE", map: "Ireland", orders: 260, revenue: 265545.90, items: 140525, customers: 3 },
+  { country: "Belgium", map: "Belgium", orders: 98, revenue: 41196.34, items: 23237, customers: 25 },
+  { country: "Netherlands", map: "Netherlands", orders: 95, revenue: 285446.34, items: 200937, customers: 9 },
+  { country: "Spain", map: "Spain", orders: 90, revenue: 61577.11, items: 27951, customers: 30 },
+  { country: "Australia", map: "Australia", orders: 57, revenue: 138521.31, items: 84209, customers: 9 },
+  { country: "Portugal", map: "Portugal", orders: 57, revenue: 33439.89, items: 16122, customers: 19 },
+  { country: "Switzerland", map: "Switzerland", orders: 51, revenue: 56443.95, items: 30083, customers: 21 },
+  { country: "Finland", map: "Finland", orders: 41, revenue: 22546.08, items: 10704, customers: 12 },
+  { country: "Italy", map: "Italy", orders: 38, revenue: 17483.24, items: 8112, customers: 14 },
+  { country: "Norway", map: "Norway", orders: 36, revenue: 36165.44, items: 19338, customers: 10 },
+  { country: "Sweden", map: "Sweden", orders: 36, revenue: 38378.33, items: 36083, customers: 8 },
+  { country: "Channel Islands", map: "Channel Islands", orders: 26, revenue: 20450.44, items: 9491, customers: 9 },
+  { country: "Poland", map: "Poland", orders: 19, revenue: 7334.65, items: 3684, customers: 6 },
+  { country: "Japan", map: "Japan", orders: 19, revenue: 37416.37, items: 26016, customers: 8 },
+  { country: "Denmark", map: "Denmark", orders: 18, revenue: 18955.34, items: 8235, customers: 9 },
+  { country: "Austria", map: "Austria", orders: 17, revenue: 10198.68, items: 4881, customers: 11 },
+  { country: "Cyprus", map: "Cyprus", orders: 16, revenue: 13590.38, items: 6361, customers: 8 },
+  { country: "Unspecified", map: "Unspecified", orders: 8, revenue: 2667.07, items: 1789, customers: 4 },
+  { country: "Iceland", map: "Iceland", orders: 7, revenue: 4310.00, items: 2458, customers: 1 },
+  { country: "Singapore", map: "Singapore", orders: 7, revenue: 21279.29, items: 5241, customers: 1 },
+  { country: "Canada", map: "Canada", orders: 6, revenue: 3666.38, items: 2763, customers: 4 },
+  { country: "Malta", map: "Malta", orders: 5, revenue: 2725.59, items: 970, customers: 2 },
+  { country: "Israel", map: "Israel", orders: 5, revenue: 7221.69, items: 4046, customers: 3 },
+  { country: "Greece", map: "Greece", orders: 5, revenue: 4760.52, items: 1557, customers: 4 },
+  { country: "USA", map: "USA", orders: 5, revenue: 3580.39, items: 2458, customers: 4 },
+  { country: "Lithuania", map: "Lithuania", orders: 4, revenue: 1661.06, items: 652, customers: 1 },
+  { country: "European Community", map: "European Community", orders: 4, revenue: 1300.25, items: 499, customers: 1 },
+  { country: "United Arab Emirates", map: "United Arab Emirates", orders: 3, revenue: 1902.28, items: 982, customers: 2 },
+  { country: "Czech Republic", map: "Czech Republic", orders: 2, revenue: 826.74, items: 671, customers: 1 },
+  { country: "Bahrain", map: "Bahrain", orders: 2, revenue: 548.40, items: 260, customers: 2 },
+  { country: "Lebanon", map: "Lebanon", orders: 1, revenue: 1693.88, items: 386, customers: 1 },
+  { country: "RSA", map: "South Africa", orders: 1, revenue: 1002.31, items: 352, customers: 1 },
+  { country: "Saudi Arabia", map: "Saudi Arabia", orders: 1, revenue: 145.92, items: 80, customers: 1 },
+  { country: "Brazil", map: "Brazil", orders: 1, revenue: 1143.60, items: 356, customers: 1 }
+];
+
+// High-contrast distinct color palette per country
+const countryColors = {
+  "United Kingdom": "#1d4ed8", // Royal Blue
+  "Germany": "#dc2626",        // Vivid Red
+  "France": "#059669",         // Emerald Green
+  "EIRE": "#d97706",           // Rich Amber
+  "Netherlands": "#7c3aed",    // Deep Violet
+  "Belgium": "#0891b2",        // Cyan Teal
+  "Spain": "#e11d48",          // Crimson Rose
+  "Australia": "#4f46e5",      // Indigo
+  "Portugal": "#65a30d",       // Lime Olive
+  "Switzerland": "#c026d3",    // Magenta
+  "Finland": "#0284c7",        // Sky Blue
+  "Italy": "#ea580c",          // Burnt Orange
+  "Sweden": "#0d9488",         // Dark Teal
+  "Norway": "#9333ea"          // Purple
+};
+
+let currentMode = 'all';
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('btnAll').classList.toggle('active', mode === 'all');
+  document.getElementById('btnNoUK').classList.toggle('active', mode === 'no_uk');
+  renderDashboard();
+}
+
+function renderDashboard() {
+  const filtered = currentMode === 'all'
+    ? rawData
+    : rawData.filter(d => d.country !== 'United Kingdom');
+
+  // Update KPIs
+  const totalOrders = filtered.reduce((s, d) => s + d.orders, 0);
+  const totalRev = filtered.reduce((s, d) => s + d.revenue, 0);
+  const totalCust = filtered.reduce((s, d) => s + d.customers, 0);
+
+  document.getElementById('kpiOrders').textContent = totalOrders.toLocaleString();
+  document.getElementById('kpiRevenue').textContent = '£' + totalRev.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('kpiCustomers').textContent = totalCust.toLocaleString();
+  document.getElementById('kpiCountries').textContent = filtered.length;
+  document.getElementById('kpiOrdersSub').textContent = currentMode === 'all' ? 'Across 37 countries' : 'International markets only';
+
+  // 1. Choropleth Map using Log10 scale for clear visual contrast across all tiers
+  const mapRows = filtered.filter(d => !['Unspecified', 'European Community', 'Channel Islands'].includes(d.country));
+  const zLog = mapRows.map(d => Math.log10(d.orders));
+
+  const mapTrace = {
+    type: 'choropleth',
+    locationmode: 'country names',
+    locations: mapRows.map(d => d.map),
+    text: mapRows.map(d => d.country),
+    z: zLog,
+    customdata: mapRows.map(d => [d.orders, d.revenue, d.customers, d.items]),
+    hovertemplate:
+      '<b>%{text}</b><br>' +
+      'Unique Orders: <b>%{customdata[0]:,.0f}</b><br>' +
+      'Revenue: <b>£%{customdata[1]:,.2f}</b><br>' +
+      'Customers: %{customdata[2]:,.0f}<br>' +
+      'Items Sold: %{customdata[3]:,.0f}<extra></extra>',
+    colorscale: [
+      [0.00, '#fde047'], // 1 order - Bright Yellow
+      [0.20, '#34d399'], // ~3-5 orders - Mint Green
+      [0.40, '#06b6d4'], // ~15-25 orders - Cyan
+      [0.60, '#2563eb'], // ~60-100 orders - Vivid Blue
+      [0.80, '#7c3aed'], // ~400+ orders - Deep Purple
+      [1.00, '#be123c']  // 16,649 orders (UK) - Deep Crimson
+    ],
+    marker: {
+      line: { color: '#1e293b', width: 0.7 }
+    },
+    colorbar: {
+      title: { text: 'Orders (Log Scale)', font: { size: 12 } },
+      tickvals: currentMode === 'all' ? [0, 1, 2, 3, 4.22] : [0, 0.7, 1.3, 2, 2.66],
+      ticktext: currentMode === 'all' ? ['1', '10', '100', '1,000', '16,649'] : ['1', '5', '20', '100', '457'],
+      thickness: 16,
+      len: 0.85
+    }
+  };
+
+  const mapLayout = {
+    title: {
+      text: currentMode === 'all'
+        ? 'Global Order Distribution by Country (High-Contrast Log Color Scale)'
+        : 'International Order Distribution (Excluding United Kingdom)',
+      font: { size: 17, color: '#0f172a' },
+      x: 0.01
+    },
+    geo: {
+      projection: { type: 'natural earth' },
+      showland: true,
+      landcolor: '#e2e8f0',
+      showocean: true,
+      oceancolor: '#f8fafc',
+      showlakes: true,
+      lakecolor: '#f8fafc',
+      showcountries: true,
+      countrycolor: '#cbd5e1',
+      coastlinecolor: '#94a3b8',
+      bgcolor: 'rgba(0,0,0,0)'
+    },
+    margin: { t: 50, b: 10, l: 10, r: 10 },
+    paper_bgcolor: 'white'
+  };
+
+  Plotly.react('mapChart', [mapTrace], mapLayout, { responsive: true });
+
+  // 2. Top 10 Countries by Orders (Sorted ascending for horizontal bar)
+  const topOrders = [...filtered].sort((a, b) => b.orders - a.orders).slice(0, 10).reverse();
+
+  const ordersTrace = {
+    type: 'bar',
+    orientation: 'h',
+    x: topOrders.map(d => d.orders),
+    y: topOrders.map(d => d.country),
+    text: topOrders.map(d => d.orders.toLocaleString()),
+    textposition: 'outside',
+    cliponaxis: false,
+    marker: {
+      color: topOrders.map(d => countryColors[d.country] || '#3b82f6'),
+      line: { color: '#0f172a', width: 0.5 }
+    },
+    customdata: topOrders.map(d => [d.customers, d.revenue]),
+    hovertemplate:
+      '<b>%{y}</b><br>' +
+      'Unique Orders: <b>%{x:,.0f}</b><br>' +
+      'Customers: %{customdata[0]:,.0f}<br>' +
+      'Revenue: £%{customdata[1]:,.2f}<extra></extra>'
+  };
+
+  const ordersLayout = {
+    title: {
+      text: currentMode === 'all' ? 'Top 10 Countries by Number of Orders' : 'Top 10 International Countries by Orders',
+      font: { size: 16, color: '#0f172a' },
+      x: 0.01
+    },
+    xaxis: {
+      title: 'Unique Orders',
+      gridcolor: '#f1f5f9',
+      zeroline: false
+    },
+    yaxis: { automargin: true },
+    margin: { t: 50, b: 40, l: 10, r: 55 },
+    paper_bgcolor: 'white',
+    plot_bgcolor: 'white'
+  };
+
+  Plotly.react('ordersBarChart', [ordersTrace], ordersLayout, { responsive: true });
+
+  // 3. Top 10 Countries by Revenue (Sorted by Revenue independently for clarity)
+  const topRevenue = [...filtered].sort((a, b) => b.revenue - a.revenue).slice(0, 10).reverse();
+
+  const revenueTrace = {
+    type: 'bar',
+    orientation: 'h',
+    x: topRevenue.map(d => d.revenue),
+    y: topRevenue.map(d => d.country),
+    text: topRevenue.map(d => '£' + Math.round(d.revenue).toLocaleString()),
+    textposition: 'outside',
+    cliponaxis: false,
+    marker: {
+      color: topRevenue.map(d => countryColors[d.country] || '#10b981'),
+      line: { color: '#0f172a', width: 0.5 }
+    },
+    customdata: topRevenue.map(d => [d.orders, d.customers]),
+    hovertemplate:
+      '<b>%{y}</b><br>' +
+      'Revenue: <b>£%{x:,.2f}</b><br>' +
+      'Unique Orders: %{customdata[0]:,.0f}<br>' +
+      'Customers: %{customdata[1]:,.0f}<extra></extra>'
+  };
+
+  const revenueLayout = {
+    title: {
+      text: currentMode === 'all' ? 'Top 10 Countries by Total Revenue (£)' : 'Top 10 International Countries by Revenue (£)',
+      font: { size: 16, color: '#0f172a' },
+      x: 0.01
+    },
+    xaxis: {
+      title: 'Revenue (£)',
+      gridcolor: '#f1f5f9',
+      zeroline: false
+    },
+    yaxis: { automargin: true },
+    margin: { t: 50, b: 40, l: 10, r: 75 },
+    paper_bgcolor: 'white',
+    plot_bgcolor: 'white'
+  };
+
+  Plotly.react('revenueBarChart', [revenueTrace], revenueLayout, { responsive: true });
+}
+
+renderDashboard();
+</script>
+</body>
+</html>
